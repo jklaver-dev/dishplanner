@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>What’s for dinner?</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;800&family=Newsreader:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root { --ink:#1c2a25; --paper:#f3f7f1; --leaf:#2d6a4f; --saffron:#f4b942; --plum:#5e2a55; --tile:#fff; --line:#d5e0d3; --onleaf:#fff; --star:#a86d00; --err:#b3261e; }
+  @media (prefers-color-scheme: dark) {
+    :root { --ink:#eaf1e8; --paper:#14201b; --tile:#1e2e27; --line:#2f453b; --leaf:#7fd1a6; --plum:#e6a8da; --onleaf:#14201b; --star:#f4b942; --err:#ff9a90; }
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--paper); color:var(--ink); font-family:"Newsreader",Georgia,serif; font-size:1.1rem; line-height:1.6; }
+  h1,h2,h3,.dish-name,button { font-family:"Bricolage Grotesque","Segoe UI",Arial,sans-serif; }
+  header { max-width:1100px; margin:0 auto; padding:3rem 1.25rem 1rem; }
+  h1 { font-size:clamp(2.4rem,7vw,4.6rem); line-height:1; margin:0 0 .75rem; font-weight:800; letter-spacing:-.02em; }
+  header p { margin:0 0 1.25rem; max-width:36rem; opacity:.85; }
+  .bar { display:flex; flex-wrap:wrap; gap:.6rem; }
+  .btn { cursor:pointer; font-size:1rem; font-weight:500; padding:.55rem 1.1rem; border-radius:999px; border:2px solid var(--line); background:var(--tile); color:var(--ink); }
+  .btn:hover { border-color:var(--leaf); }
+  .btn.main { background:var(--leaf); border-color:var(--leaf); color:var(--onleaf); }
+  .btn:focus-visible, .dish-open:focus-visible, .add:focus-visible { outline:3px solid var(--saffron); outline-offset:2px; }
+  main { max-width:1100px; margin:0 auto; padding:0 1.25rem 4rem; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:1rem; }
+  .cat { font-size:1.7rem; font-weight:800; margin:2.25rem 0 .8rem; padding-bottom:.35rem; border-bottom:3px solid var(--saffron); display:inline-block; }
+  .search { width:100%; font:inherit; padding:.6rem 1.1rem; border-radius:999px; border:2px solid var(--line); background:var(--tile); color:var(--ink); margin:.25rem 0 1rem; }
+  .search:focus-visible { outline:3px solid var(--saffron); outline-offset:2px; }
+  .dish { display:flex; flex-direction:column; background:var(--tile); border:2px solid var(--line); border-radius:14px; overflow:hidden; transition:border-color .15s; }
+  .dish:hover { border-color:var(--leaf); }
+  .dish { position:relative; }
+  .star { position:absolute; top:.45rem; right:.55rem; cursor:pointer; border:none; background:none; font-size:1.6rem; line-height:1; color:var(--ink); opacity:.55; padding:.15rem .3rem; }
+  .star:hover { opacity:1; }
+  .star[aria-pressed="true"] { color:var(--star); opacity:1; }
+  .star:focus-visible { outline:3px solid var(--saffron); outline-offset:2px; }
+  .field { display:block; margin-top:1rem; font-family:"Bricolage Grotesque","Segoe UI",Arial,sans-serif; font-weight:500; }
+  .inp { display:block; width:100%; font-family:"Newsreader",Georgia,serif; font-size:1.05rem; font-weight:400; line-height:1.5; padding:.55rem .9rem; border-radius:12px; border:2px solid var(--line); background:var(--tile); color:var(--ink); margin-top:.3rem; }
+  .inp:focus-visible { outline:3px solid var(--saffron); outline-offset:2px; }
+  .two { display:grid; grid-template-columns:1fr 1fr; gap:.8rem; }
+  .error { color:var(--err); font-weight:600; margin:.8rem 0 0; }
+  .dish.in { border-color:var(--leaf); box-shadow:0 0 0 2px var(--leaf); }
+  .dish-open { all:unset; box-sizing:border-box; cursor:pointer; display:flex; flex-direction:column; gap:.3rem; padding:1.1rem; flex:1; }
+  .emoji { font-size:2.6rem; line-height:1; }
+  .dish-name { font-weight:800; font-size:1.2rem; margin-top:.4rem; }
+  .meta { font-size:.95rem; opacity:.75; }
+  .add { cursor:pointer; border:none; border-top:2px solid var(--line); background:transparent; color:var(--ink); font-size:1rem; font-weight:500; padding:.7rem; }
+  .add:hover { background:var(--line); }
+  .dish.in .add { background:var(--leaf); color:var(--onleaf); }
+
+  dialog { width:min(640px,calc(100% - 2rem)); max-height:calc(100% - 2rem); padding:0; border:none; border-radius:18px; background:var(--paper); color:var(--ink); overflow:auto; }
+  dialog::backdrop { background:rgba(10,20,15,.6); }
+  .sheet { padding:1.75rem; }
+  .sheet h2 { font-size:2rem; margin:0 0 .15rem; line-height:1.1; }
+  .sheet h3 { font-size:1.1rem; margin:1.4rem 0 .4rem; color:var(--leaf); }
+  .sheet ul, .sheet ol { padding-left:1.3rem; margin:0; }
+  .sheet li { margin-bottom:.35rem; }
+  .sheet ol li::marker { color:var(--plum); font-weight:600; }
+  .have { opacity:.6; font-size:.95rem; }
+  .close { float:right; }
+  .row { display:flex; gap:.6rem; flex-wrap:wrap; margin-top:1.25rem; }
+  .plain { list-style:none; padding:0 !important; }
+  .plain label { cursor:pointer; display:flex; gap:.6rem; align-items:baseline; }
+  .plain input { accent-color:var(--leaf); width:1.05rem; height:1.05rem; }
+  .plain input:checked + span { text-decoration:line-through; opacity:.55; }
+  .cols { columns:2 200px; column-gap:1.5rem; }
+  .cols li { break-inside:avoid; }
+  .dishes-in { display:flex; flex-wrap:wrap; gap:.5rem; margin-top:.75rem; }
+  .chip { display:inline-flex; gap:.4rem; align-items:center; padding:.2rem .5rem .2rem .8rem; border:2px solid var(--line); border-radius:999px; background:var(--tile); }
+  .chip button { cursor:pointer; border:none; background:none; color:var(--ink); font-size:1.1rem; line-height:1; padding:.1rem .3rem; }
+  .empty { opacity:.75; }
+  @media (prefers-reduced-motion: reduce) { .dish { transition:none; } }
+</style>
+</head>
+<body>
+  <header>
+    <h1>What’s for dinner?</h1>
+    <p id="weeklabel"></p>
+    <div class="bar">
+      <button class="btn" id="open-own" type="button">+ Add your own dish</button>
+      <button class="btn" id="open-pantry" type="button">What I have at home</button>
+      <button class="btn main" id="open-cart" type="button">Shopping cart (0)</button>
+    </div>
+  </header>
+
+  <main id="grid"></main>
+
+  <dialog id="recipe" aria-labelledby="r-title">
+    <div class="sheet">
+      <button class="btn close" data-close type="button">Close</button>
+      <h2 id="r-title"></h2>
+      <div class="meta" id="r-meta"></div>
+      <h3>Ingredients</h3>
+      <ul id="r-ingredients"></ul>
+      <h3>How to make it</h3>
+      <ol id="r-steps"></ol>
+      <div class="row">
+        <button class="btn main" id="r-add" type="button"></button>
+        <button class="btn" id="r-fav" type="button" hidden></button>
+        <button class="btn" id="r-edit" type="button" hidden>Edit</button>
+        <button class="btn" id="r-del" type="button" hidden>Delete</button>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog id="own" aria-labelledby="o-title">
+    <div class="sheet">
+      <button class="btn close" data-close type="button">Cancel</button>
+      <h2 id="o-title">Add your own dish</h2>
+      <p>Your own dishes are always on the menu, whatever the week. Write the amounts for two people.</p>
+      <label class="field">Name<input class="inp" id="o-name" type="text" autocomplete="off"></label>
+      <div class="two">
+        <label class="field">Emoji (optional)<input class="inp" id="o-emoji" type="text" autocomplete="off" placeholder="🍲"></label>
+        <label class="field">Time (optional)<input class="inp" id="o-time" type="text" autocomplete="off" placeholder="30 min"></label>
+      </div>
+      <label class="field">Ingredients, one per line<textarea class="inp" id="o-ings" rows="6" placeholder="200 g pasta, 2 eggs, salt"></textarea></label>
+      <label class="field">How to make it, one step per line<textarea class="inp" id="o-steps" rows="6"></textarea></label>
+      <p class="error" id="o-error" role="alert" hidden></p>
+      <div class="row"><button class="btn main" id="o-save" type="button">Save dish</button></div>
+    </div>
+  </dialog>
+
+  <dialog id="pantry" aria-labelledby="p-title">
+    <div class="sheet">
+      <button class="btn close" data-close type="button">Done</button>
+      <h2 id="p-title">What I have at home</h2>
+      <p>Type an ingredient to find it, or tick it in the list. Press Enter to tick the first match. Ticked items will not be added to your shopping list, and your choice is saved on this device.</p>
+      <input class="search" type="search" id="p-search" placeholder="Type what you have, e.g. eggs" autocomplete="off" aria-label="Search ingredients">
+      <p class="empty" id="p-none" hidden>No ingredient matches that. Try a shorter word.</p>
+      <ul class="plain cols" id="p-list"></ul>
+      <div class="row"><button class="btn" id="p-clear" type="button">Untick everything</button></div>
+    </div>
+  </dialog>
+
+  <dialog id="cart" aria-labelledby="c-title">
+    <div class="sheet">
+      <button class="btn close" data-close type="button">Close</button>
+      <h2 id="c-title">Shopping cart</h2>
+      <div id="c-body"></div>
+    </div>
+  </dialog>
+
+<script>
+  // ---------- Recipe pool. Every recipe is for 2 people. ----------
+  // Ingredient format: "amount|unit|name" (leave amount and unit empty for "to taste" items).
+  // The menu always shows your own dishes and your favourites, plus RANDOM_COUNT other dishes from this pool
+  // that change every week. Add dishes to the pool and list them in "categories" to get more variety.
+  const RANDOM_COUNT = 20;
+  const pool = [
+    { name:"Spaghetti carbonara", emoji:"🍝", time:"20 min", i:["200|g|spaghetti","100|g|bacon","3||eggs","50|g|parmesan","||black pepper","||salt"],
+      s:["Boil the spaghetti in salted water until al dente. Save a cup of the pasta water.","Fry the bacon until crispy, then turn off the heat.","Whisk 2 eggs, 1 extra yolk, the parmesan and plenty of pepper.","Toss the pasta with the bacon, add the egg mixture and splashes of pasta water until creamy."] },
+    { name:"Chicken curry", emoji:"🍛", time:"35 min", i:["2||chicken breasts","1||onion","2||garlic cloves","2|tbsp|curry paste","400|ml|coconut milk","150|g|rice","||cooking oil","||salt"],
+      s:["Fry the chopped onion and garlic in oil until soft.","Add the cubed chicken and cook until white all over.","Stir in the curry paste for 1 minute, then add the coconut milk.","Simmer 15 minutes while the rice cooks. Season and serve."] },
+    { name:"Pancakes", emoji:"🥞", time:"20 min", i:["150|g|flour","2||eggs","300|ml|milk","1|tbsp|sugar","1|tbsp|butter","||salt","||syrup"],
+      s:["Whisk the flour, eggs, milk, sugar and a pinch of salt into a smooth batter.","Rest for 10 minutes.","Melt butter in a hot pan and pour in a thin layer.","Cook 1–2 minutes per side until golden. Serve with syrup."] },
+    { name:"Greek salad", emoji:"🥗", time:"10 min", i:["3||tomatoes","1||cucumber","1||red onion","100|g|feta","50|g|olives","3|tbsp|olive oil","1|tsp|oregano"],
+      s:["Cut the tomatoes and cucumber into chunks and slice the onion.","Mix in a bowl with the olives.","Top with the feta, olive oil and oregano."] },
+    { name:"Tomato soup", emoji:"🍅", time:"30 min", i:["1||onion","2||garlic cloves","800|g|canned tomatoes","500|ml|vegetable stock","2|tbsp|olive oil","||basil","||salt","||black pepper"],
+      s:["Soften the chopped onion and garlic in olive oil.","Add the tomatoes and stock and simmer 20 minutes.","Blend until smooth.","Season and top with basil."] },
+    { name:"Beef tacos", emoji:"🌮", time:"25 min", i:["250|g|minced beef","1|tsp|paprika powder","1|tsp|cumin","6||taco shells","0.5||lettuce","2||tomatoes","50|g|grated cheese","100|ml|sour cream"],
+      s:["Brown the minced beef, breaking it up.","Add the paprika, cumin and a splash of water and cook 5 minutes.","Warm the taco shells.","Fill with beef, lettuce, diced tomato, cheese and sour cream."] },
+    { name:"Veggie stir-fry", emoji:"🥦", time:"20 min", i:["1||broccoli","1||red pepper","2||carrots","2||garlic cloves","3|tbsp|soy sauce","1|tsp|ginger","150|g|noodles","||cooking oil"],
+      s:["Cook the noodles and set aside.","Stir-fry the sliced carrot and broccoli in a hot wok for 3 minutes.","Add the pepper, garlic and ginger for 2 more minutes.","Add the soy sauce and noodles and toss."] },
+    { name:"Margherita pizza", emoji:"🍕", time:"30 min", i:["1||pizza base","4|tbsp|tomato sauce","125|g|mozzarella","||basil","1|tbsp|olive oil"],
+      s:["Heat the oven to 220 °C.","Spread the sauce on the base and add torn mozzarella.","Bake 10–12 minutes until bubbling and browned.","Add basil and olive oil."] },
+    { name:"Cheese omelette", emoji:"🍳", time:"10 min", i:["3||eggs","30|g|grated cheese","1|tbsp|butter","||salt","||black pepper"],
+      s:["Beat the eggs with salt and pepper.","Melt the butter in a pan and pour in the eggs.","When the edges set, add the cheese to one half.","Fold over and serve."] },
+    { name:"Guacamole & chips", emoji:"🥑", time:"10 min", i:["2||avocados","1||limes","1||tomatoes","0.25||red onion","100|g|tortilla chips","||salt"],
+      s:["Mash the avocados, leaving some chunks.","Stir in the lime juice, diced tomato and chopped onion.","Add salt and serve with the chips."] },
+    { name:"Egg fried rice", emoji:"🍚", time:"15 min", i:["300|g|cooked rice","2||eggs","100|g|frozen peas","2||spring onions","2|tbsp|soy sauce","||cooking oil"],
+      s:["Scramble the eggs in hot oil in a wok and push aside.","Add the peas and fry 2 minutes.","Add the cold rice and fry on high heat 3–4 minutes.","Stir in the soy sauce and spring onions."] },
+    { name:"Cheeseburger", emoji:"🍔", time:"25 min", i:["300|g|minced beef","2||burger buns","2||cheese slices","0.5||lettuce","1||tomatoes","4||pickles","||ketchup","||salt","||black pepper"],
+      s:["Season the beef and shape 2 patties.","Fry 4 minutes per side, adding cheese for the last minute.","Toast the buns.","Build with ketchup, lettuce, tomato, pickles and patty."] },
+    { name:"Chili con carne", emoji:"🌶️", time:"45 min", i:["250|g|minced beef","1||onion","1||canned kidney beans","400|g|canned tomatoes","1|tbsp|chili powder","1|tsp|cumin","150|g|rice","||salt"],
+      s:["Fry the chopped onion, then brown the beef.","Stir in the chili powder and cumin.","Add the tomatoes and drained beans and simmer 30 minutes.","Season and serve with rice."] },
+    { name:"Pesto pasta", emoji:"🌿", time:"15 min", i:["200|g|pasta","4|tbsp|pesto","100|g|cherry tomatoes","30|g|parmesan"],
+      s:["Cook the pasta in salted water. Keep a little of the water.","Return the drained pasta to the pot and stir in the pesto with a splash of pasta water.","Add the halved tomatoes and parmesan."] },
+    { name:"Shakshuka", emoji:"🍳", time:"25 min", i:["1||onion","2||garlic cloves","1||red pepper","400|g|canned tomatoes","4||eggs","1|tsp|cumin","1|tsp|paprika powder","||bread","||cooking oil","||salt"],
+      s:["Fry the chopped onion, pepper and garlic in oil for 5 minutes.","Add the spices and tomatoes and simmer 10 minutes.","Make 4 wells in the sauce and crack in the eggs.","Cover and cook 5 minutes until the whites set. Serve with bread."] },
+    { name:"Red lentil soup", emoji:"🥣", time:"30 min", i:["150|g|red lentils","1||onion","2||carrots","2||garlic cloves","750|ml|vegetable stock","1|tsp|cumin","1|tbsp|olive oil","||salt"],
+      s:["Soften the chopped onion, carrot and garlic in olive oil.","Add the cumin, lentils and stock.","Simmer 20 minutes until the lentils are soft.","Blend partly for a thick soup and season."] },
+    { name:"Chicken wraps", emoji:"🌯", time:"20 min", i:["2||chicken breasts","4||tortilla wraps","0.5||lettuce","1||tomatoes","1||cucumber","100|ml|sour cream","1|tsp|paprika powder","||cooking oil"],
+      s:["Slice the chicken, toss with paprika and fry in oil until cooked, about 8 minutes.","Warm the wraps.","Fill with chicken, lettuce, tomato, cucumber and sour cream and roll up."] },
+    { name:"Salmon with potatoes", emoji:"🐟", time:"35 min", i:["2||salmon fillets","500|g|potatoes","200|g|green beans","1||lemons","2|tbsp|olive oil","||salt","||black pepper"],
+      s:["Heat the oven to 200 °C. Roast the halved potatoes with half the oil for 15 minutes.","Add the salmon, season and drizzle with the rest of the oil. Roast 12 minutes.","Boil the green beans for 4 minutes.","Serve with lemon wedges."] },
+    { name:"Mushroom risotto", emoji:"🍄", time:"40 min", i:["150|g|risotto rice","250|g|mushrooms","1||onion","750|ml|vegetable stock","40|g|parmesan","1|tbsp|butter"],
+      s:["Fry the sliced mushrooms in butter, then set aside.","Soften the chopped onion, add the rice and stir for 1 minute.","Add hot stock a ladle at a time, stirring, for about 20 minutes.","Stir in the mushrooms and parmesan."] },
+    { name:"Veggie quesadillas", emoji:"🧀", time:"20 min", i:["4||tortilla wraps","100|g|grated cheese","1||red pepper","1||canned sweetcorn","100|ml|salsa","||cooking oil"],
+      s:["Fry the diced pepper for 3 minutes and mix with the sweetcorn.","Spread cheese and the vegetables on half of each wrap and fold.","Fry in a little oil 2 minutes per side until crisp.","Serve with salsa."] },
+    { name:"Pasta arrabbiata", emoji:"🍝", time:"20 min", i:["200|g|pasta","400|g|canned tomatoes","2||garlic cloves","1|tsp|chili flakes","2|tbsp|olive oil","30|g|parmesan","||salt"],
+      s:["Cook the pasta in salted water.","Fry the sliced garlic and chili flakes in olive oil for 1 minute.","Add the tomatoes and simmer 10 minutes.","Toss with the pasta and top with parmesan."] },
+    { name:"Pumpkin soup", emoji:"🎃", time:"35 min", i:["600|g|pumpkin","1||onion","2||garlic cloves","500|ml|vegetable stock","100|ml|cream","1|tbsp|olive oil","||salt","||black pepper"],
+      s:["Soften the chopped onion and garlic in olive oil.","Add the cubed pumpkin and stock and simmer 20 minutes.","Blend smooth, stir in the cream and season."] },
+    { name:"Caesar salad", emoji:"🥬", time:"20 min", i:["2||chicken breasts","1||lettuce","50|g|croutons","30|g|parmesan","3|tbsp|caesar dressing","||cooking oil","||black pepper"],
+      s:["Fry the chicken in oil until cooked, about 8 minutes, then slice.","Tear the lettuce into a bowl and toss with the dressing.","Top with chicken, croutons, shaved parmesan and pepper."] },
+    { name:"Caprese salad", emoji:"🍅", time:"5 min", i:["3||tomatoes","125|g|mozzarella","||basil","2|tbsp|olive oil","||salt"],
+      s:["Slice the tomatoes and mozzarella.","Layer them on a plate with basil leaves.","Drizzle with olive oil and sprinkle with salt."] },
+    { name:"Meatballs with potatoes", emoji:"🧆", time:"45 min", i:["300|g|minced beef","1||eggs","3|tbsp|breadcrumbs","1||onion","500|g|potatoes","150|ml|tomato sauce","1|tbsp|butter","50|ml|milk","||salt"],
+      s:["Boil the peeled, cubed potatoes for 15 minutes, then mash with butter, milk and salt.","Mix the beef, egg, breadcrumbs and grated onion and roll into balls.","Fry the meatballs 8 minutes, add the tomato sauce and simmer 5 minutes.","Serve with the mash."] },
+    { name:"Chickpea curry", emoji:"🥘", time:"30 min", i:["1||onion","2||garlic cloves","1||canned chickpeas","400|ml|coconut milk","2|tbsp|curry paste","100|g|spinach","150|g|rice","||cooking oil"],
+      s:["Fry the chopped onion and garlic in oil. Start the rice.","Stir in the curry paste, then add the coconut milk and drained chickpeas.","Simmer 15 minutes, add the spinach until wilted, and serve over rice."] },
+    { name:"Stuffed peppers", emoji:"🫑", time:"40 min", i:["2||red pepper","150|g|cooked rice","100|g|feta","1||tomatoes","1|tbsp|olive oil","||salt"],
+      s:["Heat the oven to 200 °C. Halve the peppers and remove the seeds.","Mix the rice, crumbled feta, diced tomato, olive oil and salt.","Fill the peppers and bake 25 minutes."] },
+    { name:"Avocado toast", emoji:"🥑", time:"10 min", i:["4||bread slices","1||avocados","2||eggs","1|tsp|chili flakes","||salt"],
+      s:["Toast the bread.","Fry or poach the eggs.","Mash the avocado with salt, spread on the toast and top with the eggs and chili flakes."] },
+    { name:"Overnight oats", emoji:"🥣", time:"5 min + overnight", i:["100|g|oats","250|ml|milk","100|g|yoghurt","1|tbsp|honey","100|g|berries"],
+      s:["Mix the oats, milk, yoghurt and honey in two jars.","Cover and chill overnight.","Top with berries in the morning."] },
+    { name:"French toast", emoji:"🍞", time:"15 min", i:["4||bread slices","2||eggs","100|ml|milk","1|tbsp|butter","1|tsp|cinnamon","||syrup"],
+      s:["Whisk the eggs, milk and cinnamon in a shallow dish.","Soak each slice of bread for 20 seconds per side.","Fry in butter until golden on both sides and serve with syrup."] }
+  ];
+
+  const categories = {
+    "Pasta, rice & curry": ["Spaghetti carbonara","Pesto pasta","Pasta arrabbiata","Egg fried rice","Mushroom risotto","Chicken curry"],
+    "Soups & salads": ["Tomato soup","Red lentil soup","Pumpkin soup","Greek salad","Caesar salad","Caprese salad"],
+    "Meat & fish": ["Cheeseburger","Chili con carne","Beef tacos","Chicken wraps","Salmon with potatoes","Meatballs with potatoes"],
+    "Vegetarian": ["Veggie stir-fry","Margherita pizza","Veggie quesadillas","Shakshuka","Chickpea curry","Stuffed peppers"],
+    "Breakfast & light bites": ["Pancakes","Cheese omelette","Guacamole & chips","Avocado toast","Overnight oats","French toast"]
+  };
+
+  pool.forEach((d) => {
+    d.ings = d.i.map((t) => { const [q, u, n] = t.split("|"); return { q: parseFloat(q) || 0, u, n }; });
+  });
+
+  // ---------- Weekly menu: a new selection every Monday (UTC) ----------
+  const WEEK_MS = 7 * 24 * 3600 * 1000;
+  const weekIndex = Math.floor((Date.now() - Date.UTC(1970, 0, 5)) / WEEK_MS);
+  function rng(seed) {
+    return function () {
+      seed |= 0; seed = (seed + 0x6D2B79F5) | 0;
+      let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  const rand = rng(weekIndex);
+  // This week's shuffled order of the whole pool (the same all week)
+  const order = pool.slice();
+  for (let k = order.length - 1; k > 0; k--) {
+    const j = Math.floor(rand() * (k + 1));
+    [order[k], order[j]] = [order[j], order[k]];
+  }
+  const monday = new Date(Date.UTC(1970, 0, 5) + weekIndex * WEEK_MS);
+  document.getElementById("weeklabel").textContent =
+    "This week’s menu, from Monday " + monday.toLocaleDateString("en-GB", { day: "numeric", month: "long", timeZone: "UTC" }) +
+    ". Your own dishes and favourites are always here, plus 20 dishes that change every week. Pick dishes for your cart and the shopping list is made for you. All recipes are for two people.";
+
+  // ---------- Saved choices ----------
+  function load(key) { try { return JSON.parse(localStorage.getItem(key)) || []; } catch (e) { return []; } }
+  function save(key, val) { try { localStorage.setItem(key, JSON.stringify(val)); } catch (e) {} }
+  const pantry = new Set(load("dinner.pantry"));
+  const own = load("dinner.own");
+  const fav = new Set(load("dinner.fav").filter((n) => pool.some((d) => d.name === n)));
+  const cart = new Set(load("dinner.cart"));
+
+  function allDishes() { return pool.concat(own); }
+  // Sections: my dishes, favourites, then this week's random dishes grouped by category
+  function composeWeek() {
+    const random = order.filter((d) => !fav.has(d.name)).slice(0, RANDOM_COUNT);
+    const groups = [];
+    if (own.length) groups.push({ title: "My dishes", dishes: own });
+    const favs = pool.filter((d) => fav.has(d.name));
+    if (favs.length) groups.push({ title: "Favourites", dishes: favs });
+    Object.keys(categories).forEach((title) => {
+      const dishes = random.filter((d) => categories[title].includes(d.name));
+      if (dishes.length) groups.push({ title, dishes });
+    });
+    return groups;
+  }
+  function visibleDishes() { return composeWeek().flatMap((g) => g.dishes); }
+  function toggleFav(name) {
+    fav.has(name) ? fav.delete(name) : fav.add(name);
+    save("dinner.fav", [...fav]);
+    refresh();
+  }
+
+  function el(tag, cls, text) {
+    const e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text !== undefined) e.textContent = text;
+    return e;
+  }
+  const $ = (id) => document.getElementById(id);
+  const num = (q) => String(Math.round(q * 100) / 100);
+  const label = (ing) => (ing.q ? num(ing.q) + (ing.u ? " " + ing.u : "") + " " : "") + ing.n;
+
+  // ---------- Dish grid ----------
+  function renderGrid() {
+    const main = $("grid");
+    main.replaceChildren();
+    composeWeek().forEach((g) => {
+      const sec = el("section");
+      sec.append(el("h2", "cat", g.title));
+      const grid = el("div", "grid");
+      g.dishes.forEach((dish) => {
+      const inCart = cart.has(dish.name);
+      const have = dish.ings.filter((x) => pantry.has(x.n)).length;
+      const card = el("div", "dish" + (inCart ? " in" : ""));
+      const open = el("button", "dish-open");
+      open.type = "button";
+      open.append(el("span", "emoji", dish.emoji), el("span", "dish-name", dish.name),
+        el("span", "meta", (dish.time ? dish.time + " · " : "") + "you have " + have + " of " + dish.ings.length));
+      open.addEventListener("click", () => openRecipe(dish));
+      const add = el("button", "add", inCart ? "In your cart ✓" : "Add to cart");
+      add.type = "button";
+      add.setAttribute("aria-pressed", inCart);
+      add.addEventListener("click", () => toggleCart(dish.name));
+      card.append(open, add);
+      if (!dish.own) {
+        const star = el("button", "star", fav.has(dish.name) ? "★" : "☆");
+        star.type = "button";
+        star.setAttribute("aria-pressed", fav.has(dish.name));
+        star.setAttribute("aria-label", "Favourite: " + dish.name);
+        star.addEventListener("click", () => toggleFav(dish.name));
+        card.appendChild(star);
+      }
+      grid.appendChild(card);
+      });
+      sec.appendChild(grid);
+      main.appendChild(sec);
+    });
+    $("open-cart").textContent = "Shopping cart (" + cart.size + ")";
+  }
+
+  function toggleCart(name) {
+    cart.has(name) ? cart.delete(name) : cart.add(name);
+    save("dinner.cart", [...cart]);
+    refresh();
+  }
+
+  // ---------- Recipe dialog ----------
+  let current = null;
+  function openRecipe(dish) {
+    current = dish;
+    fillRecipe();
+    $("recipe").showModal();
+    $("recipe").scrollTop = 0;
+  }
+  function fillRecipe() {
+    const dish = current;
+    $("r-title").textContent = dish.emoji + " " + dish.name;
+    $("r-meta").textContent = (dish.time ? dish.time + " · " : "") + "serves 2";
+    const ul = $("r-ingredients"); ul.replaceChildren();
+    dish.ings.forEach((x) => {
+      const li = el("li", "", label(x));
+      if (pantry.has(x.n)) li.append(el("span", "have", " (at home)"));
+      ul.appendChild(li);
+    });
+    const ol = $("r-steps"); ol.replaceChildren();
+    dish.s.forEach((t) => ol.appendChild(el("li", "", t)));
+    if (!dish.s.length) ol.appendChild(el("li", "", "No steps written yet. Use Edit to add them."));
+    $("r-add").textContent = cart.has(dish.name) ? "Remove from cart" : "Add to cart";
+    $("r-fav").hidden = !!dish.own;
+    $("r-fav").textContent = fav.has(dish.name) ? "★ Favourite" : "☆ Add to favourites";
+    $("r-edit").hidden = !dish.own;
+    $("r-del").hidden = !dish.own;
+  }
+  $("r-add").addEventListener("click", () => toggleCart(current.name));
+  $("r-fav").addEventListener("click", () => {
+    toggleFav(current.name);
+    if (!visibleDishes().includes(current)) $("recipe").close();
+  });
+  $("r-edit").addEventListener("click", () => { $("recipe").close(); openOwn(current); });
+  $("r-del").addEventListener("click", () => {
+    if (!confirm("Delete “" + current.name + "”?")) return;
+    own.splice(own.indexOf(current), 1);
+    save("dinner.own", own);
+    $("recipe").close();
+    refresh();
+  });
+
+  // ---------- Pantry dialog ----------
+  function pantryNames() { return [...new Set(allDishes().flatMap((d) => d.ings.map((x) => x.n)))].sort(); }
+  function renderPantry() {
+    const q = $("p-search").value.trim().toLowerCase();
+    const names = pantryNames().filter((n) => n.includes(q));
+    $("p-none").hidden = names.length > 0;
+    const ul = $("p-list"); ul.replaceChildren();
+    names.forEach((n) => {
+      const li = el("li"), lab = el("label"), cb = el("input");
+      cb.type = "checkbox"; cb.checked = pantry.has(n);
+      cb.addEventListener("change", () => {
+        cb.checked ? pantry.add(n) : pantry.delete(n);
+        save("dinner.pantry", [...pantry]);
+        refresh();
+      });
+      lab.append(cb, el("span", "", n));
+      li.appendChild(lab); ul.appendChild(li);
+    });
+  }
+  $("p-clear").addEventListener("click", () => {
+    pantry.clear(); save("dinner.pantry", []); renderPantry(); refresh();
+  });
+
+  // ---------- Cart dialog ----------
+  function renderCart() {
+    const body = $("c-body"); body.replaceChildren();
+    if (!cart.size) {
+      body.append(el("p", "empty", "Your cart is empty. Use “Add to cart” on a dish and its ingredients will show up here."));
+      return;
+    }
+    const chosen = visibleDishes().filter((d) => cart.has(d.name));
+    const chips = el("div", "dishes-in");
+    chosen.forEach((d) => {
+      const chip = el("span", "chip", d.emoji + " " + d.name);
+      const x = el("button", "", "×");
+      x.type = "button"; x.setAttribute("aria-label", "Remove " + d.name);
+      x.addEventListener("click", () => toggleCart(d.name));
+      chip.appendChild(x); chips.appendChild(chip);
+    });
+    body.appendChild(chips);
+
+    const merged = new Map();
+    chosen.forEach((d) => d.ings.forEach((x) => {
+      const key = x.n + "|" + x.u;
+      if (!merged.has(key)) merged.set(key, { q: 0, u: x.u, n: x.n });
+      merged.get(key).q += x.q;
+    }));
+    const all = [...merged.values()].sort((a, b) => a.n.localeCompare(b.n));
+    const buy = all.filter((x) => !pantry.has(x.n));
+    const home = all.filter((x) => pantry.has(x.n));
+
+    body.appendChild(el("h3", "", "To buy (" + buy.length + ")"));
+    if (!buy.length) body.append(el("p", "empty", "You already have everything at home."));
+    const ul = el("ul", "plain");
+    buy.forEach((x) => {
+      const li = el("li"), lab = el("label"), cb = el("input");
+      cb.type = "checkbox";
+      lab.append(cb, el("span", "", label(x)));
+      li.appendChild(lab); ul.appendChild(li);
+    });
+    body.appendChild(ul);
+
+    if (home.length) {
+      body.appendChild(el("h3", "", "Already at home"));
+      const hl = el("ul");
+      home.forEach((x) => hl.appendChild(el("li", "have", label(x))));
+      body.appendChild(hl);
+    }
+
+    const row = el("div", "row");
+    const copy = el("button", "btn main", "Copy shopping list");
+    copy.type = "button";
+    copy.addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(buy.map((x) => "- " + label(x)).join("\n"));
+        copy.textContent = "Copied";
+      } catch (e) { copy.textContent = "Could not copy"; }
+    });
+    const clear = el("button", "btn", "Empty cart");
+    clear.type = "button";
+    clear.addEventListener("click", () => { cart.clear(); save("dinner.cart", []); refresh(); });
+    row.append(copy, clear);
+    body.appendChild(row);
+  }
+
+  // ---------- Your own dishes ----------
+  const UNITS = ["kg", "g", "ml", "dl", "l", "tbsp", "tsp", "cups", "cup"];
+  const DEFAULT_EMOJI = "🍽️";
+  // "200 g pasta" -> { q: 200, u: "g", n: "pasta" }, "2 eggs" -> { q: 2, u: "", n: "eggs" }, "salt" -> { q: 0, u: "", n: "salt" }
+  function parseIng(line) {
+    let t = line.trim().replace(/\s+/g, " ");
+    let q = 0, u = "";
+    const m = t.match(/^(\d+\s*\/\s*\d+|\d+(?:[.,]\d+)?)\s*/);
+    if (m) {
+      const f = m[1].split("/");
+      q = f.length === 2 ? parseFloat(f[0]) / parseFloat(f[1]) : parseFloat(m[1].replace(",", "."));
+      t = t.slice(m[0].length);
+    }
+    const w = t.split(" ")[0].toLowerCase();
+    if (q && UNITS.includes(w)) { u = w; t = t.slice(w.length).trim(); }
+    if (t.toLowerCase().startsWith("of ")) t = t.slice(3);
+    return { q: q || 0, u, n: t.trim().toLowerCase() };
+  }
+
+  let editingId = null;
+  function openOwn(dish) {
+    editingId = dish ? dish.id : null;
+    $("o-title").textContent = dish ? "Edit your dish" : "Add your own dish";
+    $("o-name").value = dish ? dish.name : "";
+    $("o-emoji").value = dish && dish.emoji !== DEFAULT_EMOJI ? dish.emoji : "";
+    $("o-time").value = dish ? dish.time : "";
+    $("o-ings").value = dish ? dish.ings.map(label).join("\n") : "";
+    $("o-steps").value = dish ? dish.s.join("\n") : "";
+    $("o-error").hidden = true;
+    $("own").showModal();
+    $("o-name").focus();
+  }
+  $("o-save").addEventListener("click", () => {
+    const err = (m) => { $("o-error").textContent = m; $("o-error").hidden = false; };
+    const name = $("o-name").value.trim();
+    const ings = $("o-ings").value.split("\n").map(parseIng).filter((x) => x.n);
+    const steps = $("o-steps").value.split("\n").map((x) => x.trim()).filter(Boolean);
+    if (!name) return err("Give your dish a name.");
+    if (!ings.length) return err("Add at least one ingredient.");
+    if (allDishes().some((d) => d.name.toLowerCase() === name.toLowerCase() && d.id !== editingId)) {
+      return err("There is already a dish with that name.");
+    }
+    const data = { name, emoji: $("o-emoji").value.trim() || DEFAULT_EMOJI, time: $("o-time").value.trim(), ings, s: steps, own: true };
+    if (editingId) {
+      const old = own.find((d) => d.id === editingId);
+      if (cart.has(old.name)) { cart.delete(old.name); cart.add(name); save("dinner.cart", [...cart]); }
+      Object.assign(old, data);
+    } else {
+      own.push({ id: Date.now(), ...data });
+    }
+    save("dinner.own", own);
+    $("own").close();
+    refresh();
+  });
+
+  // ---------- Wiring ----------
+  $("open-own").addEventListener("click", () => openOwn(null));
+  function refresh() {
+    // Cart only keeps dishes that are on the menu right now
+    const onMenu = new Set(visibleDishes().map((d) => d.name));
+    let pruned = false;
+    cart.forEach((n) => { if (!onMenu.has(n)) { cart.delete(n); pruned = true; } });
+    if (pruned) save("dinner.cart", [...cart]);
+    renderGrid();
+    renderCart();
+    if ($("recipe").open && current) fillRecipe();
+  }
+  $("open-pantry").addEventListener("click", () => {
+    $("p-search").value = "";
+    renderPantry();
+    $("pantry").showModal();
+    $("p-search").focus();
+  });
+  $("p-search").addEventListener("input", renderPantry);
+  $("p-search").addEventListener("keydown", (e) => {
+    if (e.key !== "Enter") return;
+    e.preventDefault();
+    const q = $("p-search").value.trim().toLowerCase();
+    const matches = pantryNames().filter((n) => n.includes(q));
+    if (!q || !matches.length) return;
+    pantry.add(matches.includes(q) ? q : matches[0]);
+    save("dinner.pantry", [...pantry]);
+    $("p-search").value = "";
+    renderPantry();
+    refresh();
+  });
+  $("open-cart").addEventListener("click", () => { renderCart(); $("cart").showModal(); });
+  document.querySelectorAll("dialog").forEach((dlg) => {
+    dlg.addEventListener("click", (e) => { if (e.target === dlg && dlg.id !== "own") dlg.close(); });
+    dlg.querySelectorAll("[data-close]").forEach((b) => b.addEventListener("click", () => dlg.close()));
+  });
+  refresh();
+</script>
+</body>
+</html>
