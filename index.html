@@ -31,19 +31,29 @@
   .dish { display:flex; flex-direction:column; background:var(--tile); border:2px solid var(--line); border-radius:14px; overflow:hidden; transition:border-color .15s; }
   .dish:hover { border-color:var(--leaf); }
   .dish { position:relative; }
-  .star { position:absolute; top:.45rem; right:.55rem; cursor:pointer; border:none; background:none; font-size:1.6rem; line-height:1; color:var(--ink); opacity:.55; padding:.15rem .3rem; }
-  .star:hover { opacity:1; }
-  .star[aria-pressed="true"] { color:var(--star); opacity:1; }
+  .star { position:absolute; top:.5rem; right:.5rem; z-index:1; cursor:pointer; border:none; width:2.3rem; height:2.3rem; border-radius:50%; background:rgba(255,255,255,.92); color:#1c2a25; font-size:1.4rem; line-height:1; padding:0; box-shadow:0 1px 4px rgba(0,0,0,.3); }
+  .star:hover { background:#fff; }
+  .star[aria-pressed="true"] { color:#c27c00; }
   .star:focus-visible { outline:3px solid var(--saffron); outline-offset:2px; }
   .field { display:block; margin-top:1rem; font-family:"Bricolage Grotesque","Segoe UI",Arial,sans-serif; font-weight:500; }
   .inp { display:block; width:100%; font-family:"Newsreader",Georgia,serif; font-size:1.05rem; font-weight:400; line-height:1.5; padding:.55rem .9rem; border-radius:12px; border:2px solid var(--line); background:var(--tile); color:var(--ink); margin-top:.3rem; }
   .inp:focus-visible { outline:3px solid var(--saffron); outline-offset:2px; }
   .two { display:grid; grid-template-columns:1fr 1fr; gap:.8rem; }
   .error { color:var(--err); font-weight:600; margin:.8rem 0 0; }
+  [hidden] { display:none !important; }
+  .prev { display:block; max-width:100%; max-height:140px; border-radius:10px; margin:.6rem 0; }
+  #k-msg { font-size:1.5rem; }
+  .foot { max-width:1100px; margin:0 auto; padding:0 1.25rem 3rem; font-size:.95rem; opacity:.7; }
   .dish.in { border-color:var(--leaf); box-shadow:0 0 0 2px var(--leaf); }
-  .dish-open { all:unset; box-sizing:border-box; cursor:pointer; display:flex; flex-direction:column; gap:.3rem; padding:1.1rem; flex:1; }
-  .emoji { font-size:2.6rem; line-height:1; }
-  .dish-name { font-weight:800; font-size:1.2rem; margin-top:.4rem; }
+  .dish-open { all:unset; box-sizing:border-box; cursor:pointer; display:flex; flex-direction:column; flex:1; }
+  .body { display:flex; flex-direction:column; gap:.2rem; padding:.85rem 1.1rem 1rem; }
+  .photo { position:relative; display:flex; align-items:center; justify-content:center; aspect-ratio:4/3; background:var(--line); overflow:hidden; }
+  .photo img { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
+  .ph-emoji { font-size:3.2rem; line-height:1; }
+  .photo.loaded .ph-emoji { visibility:hidden; }
+  #r-photo { clear:both; }
+  #r-photo .photo { aspect-ratio:16/9; border-radius:12px; margin-bottom:1rem; }
+  .dish-name { font-weight:800; font-size:1.2rem; }
   .meta { font-size:.95rem; opacity:.75; }
   .add { cursor:pointer; border:none; border-top:2px solid var(--line); background:transparent; color:var(--ink); font-size:1rem; font-weight:500; padding:.7rem; }
   .add:hover { background:var(--line); }
@@ -89,6 +99,7 @@
   <dialog id="recipe" aria-labelledby="r-title">
     <div class="sheet">
       <button class="btn close" data-close type="button">Close</button>
+      <div id="r-photo"></div>
       <h2 id="r-title"></h2>
       <div class="meta" id="r-meta"></div>
       <h3>Ingredients</h3>
@@ -101,6 +112,15 @@
         <button class="btn" id="r-edit" type="button" hidden>Edit</button>
         <button class="btn" id="r-del" type="button" hidden>Delete</button>
       </div>
+      <p class="have" id="r-hint" hidden>Add this dish to your favourites (the star) to edit its ingredients and steps.</p>
+    </div>
+  </dialog>
+
+  <dialog id="confirm" aria-labelledby="k-msg">
+    <div class="sheet">
+      <h2 id="k-msg"></h2>
+      <p id="k-note"></p>
+      <div class="row"><button class="btn main" id="k-ok" type="button"></button><button class="btn" id="k-cancel" type="button"></button></div>
     </div>
   </dialog>
 
@@ -108,16 +128,25 @@
     <div class="sheet">
       <button class="btn close" data-close type="button">Cancel</button>
       <h2 id="o-title">Add your own dish</h2>
-      <p>Your own dishes are always on the menu, whatever the week. Write the amounts for two people.</p>
+      <p id="o-intro"></p>
       <label class="field">Name<input class="inp" id="o-name" type="text" autocomplete="off"></label>
       <div class="two">
-        <label class="field">Emoji (optional)<input class="inp" id="o-emoji" type="text" autocomplete="off" placeholder="🍲"></label>
+        <label class="field" id="o-emoji-wrap">Emoji (optional)<input class="inp" id="o-emoji" type="text" autocomplete="off" placeholder="🍲"></label>
         <label class="field">Time (optional)<input class="inp" id="o-time" type="text" autocomplete="off" placeholder="30 min"></label>
       </div>
       <label class="field">Ingredients, one per line<textarea class="inp" id="o-ings" rows="6" placeholder="200 g pasta, 2 eggs, salt"></textarea></label>
       <label class="field">How to make it, one step per line<textarea class="inp" id="o-steps" rows="6"></textarea></label>
+      <div class="field" id="o-photo-wrap">
+        <label for="o-photo">Photo (optional)</label>
+        <input class="inp" id="o-photo" type="file" accept="image/*">
+        <img class="prev" id="o-prev" alt="Preview of your photo" hidden>
+        <button class="btn" id="o-rmphoto" type="button" hidden>Remove photo</button>
+      </div>
       <p class="error" id="o-error" role="alert" hidden></p>
-      <div class="row"><button class="btn main" id="o-save" type="button">Save dish</button></div>
+      <div class="row">
+        <button class="btn main" id="o-save" type="button">Save dish</button>
+        <button class="btn" id="o-reset" type="button" hidden>Reset to original recipe</button>
+      </div>
     </div>
   </dialog>
 
@@ -140,6 +169,8 @@
       <div id="c-body"></div>
     </div>
   </dialog>
+
+<footer class="foot">Photos are loaded from Wikipedia and Wikimedia Commons and belong to their authors. To use your own picture for a dish, save it as images/dish-name.jpg next to this file, for example images/spaghetti-carbonara.jpg.</footer>
 
 <script>
   // ---------- Recipe pool. Every recipe is for 2 people. ----------
@@ -220,6 +251,7 @@
 
   pool.forEach((d) => {
     d.ings = d.i.map((t) => { const [q, u, n] = t.split("|"); return { q: parseFloat(q) || 0, u, n }; });
+    d.orig = { time: d.time, ings: d.ings, s: d.s };   // the original recipe, kept so edits can be reset
   });
 
   // ---------- Weekly menu: a new selection every Monday (UTC) ----------
@@ -247,9 +279,20 @@
 
   // ---------- Saved choices ----------
   function load(key) { try { return JSON.parse(localStorage.getItem(key)) || []; } catch (e) { return []; } }
-  function save(key, val) { try { localStorage.setItem(key, JSON.stringify(val)); } catch (e) {} }
+  function save(key, val) { try { localStorage.setItem(key, JSON.stringify(val)); return true; } catch (e) { return false; } }
+  function loadObj(key) { try { return JSON.parse(localStorage.getItem(key)) || {}; } catch (e) { return {}; } }
   const pantry = new Set(load("dinner.pantry"));
   const own = load("dinner.own");
+  const edits = loadObj("dinner.edits");     // your changes to built-in recipes
+  const photos = loadObj("dinner.photos");   // photo addresses found on Wikipedia
+  const noLocal = new Set();
+  function applyEdit(d) {
+    const e = edits[d.name];
+    d.time = e ? e.time : d.orig.time;
+    d.ings = e ? e.ings : d.orig.ings;
+    d.s = e ? e.s : d.orig.s;
+  }
+  pool.forEach(applyEdit);
   const fav = new Set(load("dinner.fav").filter((n) => pool.some((d) => d.name === n)));
   const cart = new Set(load("dinner.cart"));
 
@@ -268,8 +311,31 @@
     return groups;
   }
   function visibleDishes() { return composeWeek().flatMap((g) => g.dishes); }
-  function toggleFav(name) {
-    fav.has(name) ? fav.delete(name) : fav.add(name);
+  function askConfirm(message, note, okLabel, cancelLabel) {
+    return new Promise((resolve) => {
+      const d = $("confirm");
+      $("k-msg").textContent = message;
+      $("k-note").textContent = note;
+      $("k-ok").textContent = okLabel;
+      $("k-cancel").textContent = cancelLabel;
+      $("k-ok").onclick = () => d.close("ok");
+      $("k-cancel").onclick = () => d.close("no");
+      d.onclose = () => resolve(d.returnValue === "ok");   // Esc or a click outside counts as "no"
+      d.returnValue = "";
+      d.showModal();
+      $("k-cancel").focus();
+    });
+  }
+  async function toggleFav(name) {
+    if (fav.has(name)) {
+      const ok = await askConfirm("Remove “" + name + "” from your favourites?",
+        edits[name] ? "It goes back to the weekly pool. Your changes to the recipe stay saved." : "It goes back to the weekly pool and may disappear from the menu.",
+        "Remove", "Keep it");
+      if (!ok) return;
+      fav.delete(name);
+    } else {
+      fav.add(name);
+    }
     save("dinner.fav", [...fav]);
     refresh();
   }
@@ -298,8 +364,10 @@
       const card = el("div", "dish" + (inCart ? " in" : ""));
       const open = el("button", "dish-open");
       open.type = "button";
-      open.append(el("span", "emoji", dish.emoji), el("span", "dish-name", dish.name),
+      const body = el("span", "body");
+      body.append(el("span", "dish-name", dish.name),
         el("span", "meta", (dish.time ? dish.time + " · " : "") + "you have " + have + " of " + dish.ings.length));
+      open.append(makePhoto(dish), body);
       open.addEventListener("click", () => openRecipe(dish));
       const add = el("button", "add", inCart ? "In your cart ✓" : "Add to cart");
       add.type = "button";
@@ -338,7 +406,8 @@
   }
   function fillRecipe() {
     const dish = current;
-    $("r-title").textContent = dish.emoji + " " + dish.name;
+    $("r-photo").replaceChildren(makePhoto(dish));
+    $("r-title").textContent = dish.name;
     $("r-meta").textContent = (dish.time ? dish.time + " · " : "") + "serves 2";
     const ul = $("r-ingredients"); ul.replaceChildren();
     dish.ings.forEach((x) => {
@@ -352,17 +421,18 @@
     $("r-add").textContent = cart.has(dish.name) ? "Remove from cart" : "Add to cart";
     $("r-fav").hidden = !!dish.own;
     $("r-fav").textContent = fav.has(dish.name) ? "★ Favourite" : "☆ Add to favourites";
-    $("r-edit").hidden = !dish.own;
+    $("r-edit").hidden = !(dish.own || fav.has(dish.name));
+    $("r-hint").hidden = !!dish.own || fav.has(dish.name);
     $("r-del").hidden = !dish.own;
   }
   $("r-add").addEventListener("click", () => toggleCart(current.name));
-  $("r-fav").addEventListener("click", () => {
-    toggleFav(current.name);
+  $("r-fav").addEventListener("click", async () => {
+    await toggleFav(current.name);
     if (!visibleDishes().includes(current)) $("recipe").close();
   });
   $("r-edit").addEventListener("click", () => { $("recipe").close(); openOwn(current); });
-  $("r-del").addEventListener("click", () => {
-    if (!confirm("Delete “" + current.name + "”?")) return;
+  $("r-del").addEventListener("click", async () => {
+    if (!(await askConfirm("Delete “" + current.name + "”?", "This cannot be undone.", "Delete", "Keep it"))) return;
     own.splice(own.indexOf(current), 1);
     save("dinner.own", own);
     $("recipe").close();
@@ -402,7 +472,7 @@
     const chosen = visibleDishes().filter((d) => cart.has(d.name));
     const chips = el("div", "dishes-in");
     chosen.forEach((d) => {
-      const chip = el("span", "chip", d.emoji + " " + d.name);
+      const chip = el("span", "chip", d.name);
       const x = el("button", "", "×");
       x.type = "button"; x.setAttribute("aria-label", "Remove " + d.name);
       x.addEventListener("click", () => toggleCart(d.name));
@@ -454,9 +524,99 @@
     body.appendChild(row);
   }
 
-  // ---------- Your own dishes ----------
+  // ---------- Photos ----------
+  // Lead image of the matching Wikipedia article, looked up once and remembered on this device.
+  const wikiTitles = {
+    "Spaghetti carbonara":"Carbonara", "Chicken curry":"Chicken curry", "Pancakes":"Pancake", "Greek salad":"Greek salad",
+    "Tomato soup":"Tomato soup", "Beef tacos":"Taco", "Veggie stir-fry":"Stir frying", "Margherita pizza":"Pizza margherita",
+    "Cheese omelette":"Omelette", "Guacamole & chips":"Guacamole", "Egg fried rice":"Fried rice", "Cheeseburger":"Cheeseburger",
+    "Chili con carne":"Chili con carne", "Pesto pasta":"Pesto", "Shakshuka":"Shakshouka", "Red lentil soup":"Lentil soup",
+    "Chicken wraps":"Wrap (food)", "Salmon with potatoes":"Salmon as food", "Mushroom risotto":"Risotto", "Veggie quesadillas":"Quesadilla",
+    "Pasta arrabbiata":"Arrabbiata sauce", "Pumpkin soup":"Pumpkin soup", "Caesar salad":"Caesar salad", "Caprese salad":"Caprese salad",
+    "Meatballs with potatoes":"Meatball", "Chickpea curry":"Chana masala", "Stuffed peppers":"Stuffed peppers", "Avocado toast":"Avocado toast",
+    "Overnight oats":"Oatmeal", "French toast":"French toast"
+  };
+  const slug = (n) => n.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+
+  // Photo order: your own upload, then images/<dish-name>.jpg next to this file, then Wikipedia, then the emoji.
+  function makePhoto(dish) {
+    const box = el("span", "photo");
+    box.appendChild(el("span", "ph-emoji", dish.emoji));
+    const srcs = [];
+    if (dish.photo) {
+      srcs.push(dish.photo);
+    } else {
+      const local = "images/" + slug(dish.name) + ".jpg";
+      if (!noLocal.has(local)) srcs.push(local);
+      if (photos[dish.name]) srcs.push(photos[dish.name]);
+    }
+    if (!srcs.length) return box;
+    const img = el("img");
+    img.alt = "";
+    let n = 0;
+    const next = () => {
+      if (n > 0 && srcs[n - 1].startsWith("images/")) noLocal.add(srcs[n - 1]);
+      if (n < srcs.length) img.src = srcs[n++]; else img.remove();
+    };
+    img.onerror = next;
+    img.onload = () => box.classList.add("loaded");
+    next();
+    box.appendChild(img);
+    return box;
+  }
+
+  async function fetchPhotos() {
+    if (typeof fetch !== "function") return;
+    const missing = pool.filter((d) => wikiTitles[d.name] && !(d.name in photos));
+    for (let i = 0; i < missing.length; i += 40) {
+      const chunk = missing.slice(i, i + 40);
+      try {
+        const url = "https://en.wikipedia.org/w/api.php?action=query&format=json&origin=*&redirects=1&prop=pageimages&piprop=thumbnail&pithumbsize=600&titles=" +
+          encodeURIComponent(chunk.map((d) => wikiTitles[d.name]).join("|"));
+        const q = (await (await fetch(url)).json()).query || {};
+        const hop = {};
+        (q.normalized || []).forEach((x) => { hop[x.from] = x.to; });
+        (q.redirects || []).forEach((x) => { hop[x.from] = x.to; });
+        const byTitle = {};
+        Object.values(q.pages || {}).forEach((pg) => { byTitle[pg.title] = pg.thumbnail ? pg.thumbnail.source : ""; });
+        chunk.forEach((d) => {
+          let t = wikiTitles[d.name];
+          t = hop[t] || t;
+          t = hop[t] || t;
+          photos[d.name] = byTitle[t] || "";
+        });
+        save("dinner.photos", photos);
+        refresh();
+      } catch (e) { /* offline: try again next time */ }
+    }
+  }
+
+  // Shrinks an uploaded picture so it fits in the browser's storage
+  function readPhoto(file) {
+    return new Promise((resolve, reject) => {
+      const fr = new FileReader();
+      fr.onerror = reject;
+      fr.onload = () => {
+        const img = new Image();
+        img.onerror = reject;
+        img.onload = () => {
+          const k = Math.min(1, 640 / Math.max(img.width, img.height));
+          const c = document.createElement("canvas");
+          c.width = Math.round(img.width * k);
+          c.height = Math.round(img.height * k);
+          c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+          resolve(c.toDataURL("image/jpeg", 0.8));
+        };
+        img.src = fr.result;
+      };
+      fr.readAsDataURL(file);
+    });
+  }
+
+  // ---------- Adding and editing dishes ----------
   const UNITS = ["kg", "g", "ml", "dl", "l", "tbsp", "tsp", "cups", "cup"];
   const DEFAULT_EMOJI = "🍽️";
+  const STORAGE_MSG = "Could not save: the browser storage is full. Try a smaller photo.";
   // "200 g pasta" -> { q: 200, u: "g", n: "pasta" }, "2 eggs" -> { q: 2, u: "", n: "eggs" }, "salt" -> { q: 0, u: "", n: "salt" }
   function parseIng(line) {
     let t = line.trim().replace(/\s+/g, " ");
@@ -473,38 +633,81 @@
     return { q: q || 0, u, n: t.trim().toLowerCase() };
   }
 
-  let editingId = null;
+  let editingDish = null;   // null = a new dish of your own
+  let photoData = "";
+  const fail = (m) => { $("o-error").textContent = m; $("o-error").hidden = false; };
+  function showPhotoPreview() {
+    $("o-prev").hidden = !photoData;
+    if (photoData) $("o-prev").src = photoData;
+    $("o-rmphoto").hidden = !photoData;
+  }
+  // Opens the form: a new dish, one of your own dishes, or a favourite built-in dish
   function openOwn(dish) {
-    editingId = dish ? dish.id : null;
-    $("o-title").textContent = dish ? "Edit your dish" : "Add your own dish";
+    editingDish = dish || null;
+    const builtIn = !!dish && !dish.own;
+    $("o-title").textContent = !dish ? "Add your own dish" : builtIn ? "Edit recipe" : "Edit your dish";
+    $("o-intro").textContent = builtIn
+      ? "Add, remove or change ingredients and steps. Your changes are saved on this device. Write the amounts for two people."
+      : "Your own dishes are always on the menu, whatever the week. Write the amounts for two people.";
     $("o-name").value = dish ? dish.name : "";
+    $("o-name").disabled = builtIn;
+    $("o-emoji-wrap").hidden = builtIn;
     $("o-emoji").value = dish && dish.emoji !== DEFAULT_EMOJI ? dish.emoji : "";
     $("o-time").value = dish ? dish.time : "";
     $("o-ings").value = dish ? dish.ings.map(label).join("\n") : "";
     $("o-steps").value = dish ? dish.s.join("\n") : "";
+    $("o-photo-wrap").hidden = builtIn;
+    $("o-photo").value = "";
+    photoData = dish && dish.photo ? dish.photo : "";
+    showPhotoPreview();
+    $("o-reset").hidden = !(builtIn && edits[dish.name]);
     $("o-error").hidden = true;
     $("own").showModal();
-    $("o-name").focus();
+    (builtIn ? $("o-time") : $("o-name")).focus();
   }
+  $("o-photo").addEventListener("change", async () => {
+    const f = $("o-photo").files[0];
+    if (!f) return;
+    try { photoData = await readPhoto(f); } catch (e) { photoData = ""; fail("That file could not be read as a picture."); }
+    showPhotoPreview();
+  });
+  $("o-rmphoto").addEventListener("click", () => { photoData = ""; $("o-photo").value = ""; showPhotoPreview(); });
+
   $("o-save").addEventListener("click", () => {
-    const err = (m) => { $("o-error").textContent = m; $("o-error").hidden = false; };
     const name = $("o-name").value.trim();
+    const time = $("o-time").value.trim();
     const ings = $("o-ings").value.split("\n").map(parseIng).filter((x) => x.n);
     const steps = $("o-steps").value.split("\n").map((x) => x.trim()).filter(Boolean);
-    if (!name) return err("Give your dish a name.");
-    if (!ings.length) return err("Add at least one ingredient.");
-    if (allDishes().some((d) => d.name.toLowerCase() === name.toLowerCase() && d.id !== editingId)) {
-      return err("There is already a dish with that name.");
-    }
-    const data = { name, emoji: $("o-emoji").value.trim() || DEFAULT_EMOJI, time: $("o-time").value.trim(), ings, s: steps, own: true };
-    if (editingId) {
-      const old = own.find((d) => d.id === editingId);
-      if (cart.has(old.name)) { cart.delete(old.name); cart.add(name); save("dinner.cart", [...cart]); }
-      Object.assign(old, data);
+    if (!name) return fail("Give your dish a name.");
+    if (!ings.length) return fail("Add at least one ingredient.");
+    if (editingDish && !editingDish.own) {
+      edits[editingDish.name] = { time, ings, s: steps };
+      if (!save("dinner.edits", edits)) return fail(STORAGE_MSG);
+      applyEdit(editingDish);
     } else {
-      own.push({ id: Date.now(), ...data });
+      if (allDishes().some((d) => d.name.toLowerCase() === name.toLowerCase() && d !== editingDish)) {
+        return fail("There is already a dish with that name.");
+      }
+      const data = { name, emoji: $("o-emoji").value.trim() || DEFAULT_EMOJI, time, ings, s: steps, own: true, photo: photoData };
+      if (editingDish) {
+        const backup = { ...editingDish };
+        Object.assign(editingDish, data);
+        if (!save("dinner.own", own)) { Object.assign(editingDish, backup); return fail(STORAGE_MSG); }
+        if (cart.has(backup.name) && backup.name !== name) { cart.delete(backup.name); cart.add(name); save("dinner.cart", [...cart]); }
+      } else {
+        own.push({ id: Date.now(), ...data });
+        if (!save("dinner.own", own)) { own.pop(); return fail(STORAGE_MSG); }
+      }
     }
-    save("dinner.own", own);
+    $("own").close();
+    refresh();
+  });
+  $("o-reset").addEventListener("click", async () => {
+    const d = editingDish;
+    if (!(await askConfirm("Go back to the original recipe?", "Your changes to “" + d.name + "” will be lost.", "Reset", "Keep my changes"))) return;
+    delete edits[d.name];
+    save("dinner.edits", edits);
+    applyEdit(d);
     $("own").close();
     refresh();
   });
@@ -546,6 +749,7 @@
     dlg.querySelectorAll("[data-close]").forEach((b) => b.addEventListener("click", () => dlg.close()));
   });
   refresh();
+  fetchPhotos();
 </script>
 </body>
 </html>
