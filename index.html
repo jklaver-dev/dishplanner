@@ -43,6 +43,10 @@
   [hidden] { display:none !important; }
   .prev { display:block; max-width:100%; max-height:140px; border-radius:10px; margin:.6rem 0; }
   #k-msg { font-size:1.5rem; }
+  summary.cat { cursor:pointer; }
+  summary.cat::after { content:" ▾"; }
+  details[open] > summary.cat::after { content:" ▴"; }
+  summary.cat:focus-visible { outline:3px solid var(--saffron); outline-offset:2px; }
   .foot { max-width:1100px; margin:0 auto; padding:0 1.25rem 3rem; font-size:.95rem; opacity:.7; }
   .dish.in { border-color:var(--leaf); box-shadow:0 0 0 2px var(--leaf); }
   .dish-open { all:unset; box-sizing:border-box; cursor:pointer; display:flex; flex-direction:column; flex:1; }
@@ -267,15 +271,19 @@
   }
   const rand = rng(weekIndex);
   // This week's shuffled order of the whole pool (the same all week)
-  const order = pool.slice();
-  for (let k = order.length - 1; k > 0; k--) {
-    const j = Math.floor(rand() * (k + 1));
-    [order[k], order[j]] = [order[j], order[k]];
+  function shuffledPool(idx) {
+    const r = rng(idx), o = pool.slice();
+    for (let k = o.length - 1; k > 0; k--) {
+      const j = Math.floor(r() * (k + 1));
+      [o[k], o[j]] = [o[j], o[k]];
+    }
+    return o;
   }
+  const order = shuffledPool(weekIndex);
   const monday = new Date(Date.UTC(1970, 0, 5) + weekIndex * WEEK_MS);
   document.getElementById("weeklabel").textContent =
     "This week’s menu, from Monday " + monday.toLocaleDateString("en-GB", { day: "numeric", month: "long", timeZone: "UTC" }) +
-    ". Your own dishes and favourites are always here, plus 20 dishes that change every week. Pick dishes for your cart and the shopping list is made for you. All recipes are for two people.";
+    ". Your own dishes and favourites are always here, plus 20 dishes that change every week. Last week’s dishes stay available at the bottom. Pick dishes for your cart and the shopping list is made for you. All recipes are for two people.";
 
   // ---------- Saved choices ----------
   function load(key) { try { return JSON.parse(localStorage.getItem(key)) || []; } catch (e) { return []; } }
@@ -283,6 +291,7 @@
   function loadObj(key) { try { return JSON.parse(localStorage.getItem(key)) || {}; } catch (e) { return {}; } }
   const pantry = new Set(load("dinner.pantry"));
   const own = load("dinner.own");
+  const history = loadObj("dinner.history");   // random dishes shown in each week, so last week can be shown again
   const edits = loadObj("dinner.edits");     // your changes to built-in recipes
   const photos = loadObj("dinner.photos");   // photo addresses found on Wikipedia
   const noLocal = new Set();
@@ -308,7 +317,16 @@
       const dishes = random.filter((d) => categories[title].includes(d.name));
       if (dishes.length) groups.push({ title, dishes });
     });
+    // Last week's random dishes, kept in a separate section (without the ones already shown above)
+    const shown = new Set(groups.flatMap((g) => g.dishes.map((d) => d.name)));
+    const prev = lastWeekNames().map((n) => pool.find((d) => d.name === n)).filter((d) => d && !shown.has(d.name));
+    if (prev.length) groups.push({ title: "Last week’s dishes", dishes: prev, collapsed: true });
     return groups;
+  }
+  // What was on the menu last week: the saved list, or (if the site was not opened then) the same shuffle rebuilt
+  function lastWeekNames() {
+    if (history[weekIndex - 1]) return history[weekIndex - 1];
+    return shuffledPool(weekIndex - 1).filter((d) => !fav.has(d.name)).slice(0, RANDOM_COUNT).map((d) => d.name);
   }
   function visibleDishes() { return composeWeek().flatMap((g) => g.dishes); }
   function askConfirm(message, note, okLabel, cancelLabel) {
@@ -351,12 +369,17 @@
   const label = (ing) => (ing.q ? num(ing.q) + (ing.u ? " " + ing.u : "") + " " : "") + ing.n;
 
   // ---------- Dish grid ----------
+  let lastWeekOpen = false;
   function renderGrid() {
     const main = $("grid");
     main.replaceChildren();
     composeWeek().forEach((g) => {
-      const sec = el("section");
-      sec.append(el("h2", "cat", g.title));
+      const sec = el(g.collapsed ? "details" : "section");
+      sec.append(el(g.collapsed ? "summary" : "h2", "cat", g.title + (g.collapsed ? " (" + g.dishes.length + ")" : "")));
+      if (g.collapsed) {
+        sec.open = lastWeekOpen;
+        sec.addEventListener("toggle", () => { lastWeekOpen = sec.open; });
+      }
       const grid = el("div", "grid");
       g.dishes.forEach((dish) => {
       const inCart = cart.has(dish.name);
@@ -715,6 +738,9 @@
   // ---------- Wiring ----------
   $("open-own").addEventListener("click", () => openOwn(null));
   function refresh() {
+    history[weekIndex] = order.filter((d) => !fav.has(d.name)).slice(0, RANDOM_COUNT).map((d) => d.name);
+    Object.keys(history).forEach((k) => { if (+k < weekIndex - 1) delete history[k]; });
+    save("dinner.history", history);
     // Cart only keeps dishes that are on the menu right now
     const onMenu = new Set(visibleDishes().map((d) => d.name));
     let pruned = false;
